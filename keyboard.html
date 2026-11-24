@@ -1,0 +1,274 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>Keyboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; background: transparent; user-select: none; cursor: default; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  #kb { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  svg { display: block; }
+  .row { display: flex; justify-content: center; }
+  .key {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto; color: var(--ink); background: var(--key); border-radius: var(--radius);
+    box-shadow: var(--shadow); font-size: var(--font); line-height: 1; transition: background 0.08s;
+  }
+  .key.fn { background: var(--fn); font-size: var(--fn-font); }
+  .key.go { background: var(--go); color: var(--go-ink); }
+  .key.ghost { background: transparent; box-shadow: none; }
+  .key.down { background: var(--down); }
+  .key small { position: absolute; top: 3px; right: 5px; font-size: 9px; color: var(--hint); }
+  .key .sub { display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; margin-top: 2px; }
+  .key .label { font-size: 11px; color: var(--hint); }
+  .strip { display: flex; align-items: center; flex: 0 0 auto; }
+
+  /* Apple */
+  .apple { --board: #d2d5db; --key: #fff; --fn: #acb1ba; --down: #acb1ba; --ink: #000; --hint: #8a8a8e;
+           --radius: 5px; --shadow: 0 1px 0 rgba(0, 0, 0, 0.32); --go: #0a84ff; --go-ink: #fff; --font: 22px; --fn-font: 15px; }
+  .apple .accessory { height: 44px; background: #f2f2f6; border-top: 0.5px solid #c6c6c8; padding: 0 16px; gap: 22px; color: #0a84ff; }
+  .apple .accessory .chev { color: #b4b4b8; }
+  .apple .accessory .done { margin-left: auto; font-size: 17px; font-weight: 600; }
+  .apple .board { flex: 1; background: var(--board); display: flex; flex-direction: column; }
+  .apple .predict { height: 44px; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; font-size: 16px; color: #000; }
+  .apple .predict span { text-align: center; border-left: 1px solid #b4b8bf; }
+  .apple .predict span:first-child { border-left: 0; }
+  .apple .foot { justify-content: space-between; align-items: flex-start; padding: 12px 22px 0; color: #5f6066; }
+  .apple .numpad .key { font-size: 25px; flex-direction: column; }
+
+  /* Gboard */
+  .gboard { --board: #edeff5; --key: #fff; --fn: #d4dae6; --down: #c3cad9; --ink: #1f1f1f; --hint: #74777f;
+            --radius: 6px; --shadow: none; --go: #0b57d0; --go-ink: #fff; --font: 21px; --fn-font: 14px; background: var(--board); }
+  .gboard .toolbar { height: 44px; justify-content: space-around; padding: 0 6px; color: #444746; font-size: 12px; font-weight: 700; }
+  .gboard .foot { height: 26px; justify-content: center; position: relative; color: #444746; }
+  .gboard .foot .hide { position: absolute; left: 16px; top: 3px; }
+  .gboard .foot .pill { width: 108px; height: 4px; border-radius: 2px; background: #8e9099; }
+  .gboard .key.go { border-radius: 18px; }
+
+  /* Samsung */
+  .samsung { --board: #f1f1f3; --key: #fff; --fn: #dfdfe3; --down: #d0d0d6; --ink: #1c1c1c; --hint: #8a8a8f;
+             --radius: 8px; --shadow: none; --go: #dfdfe3; --go-ink: #1c1c1c; --font: 21px; --fn-font: 14px; background: var(--board); }
+  .samsung .toolbar { height: 42px; justify-content: space-around; padding: 0 6px; color: #5a5a5f; font-size: 12px; font-weight: 700; }
+  .samsung .key .label { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; }
+</style>
+</head>
+<body>
+<div id="kb"></div>
+<script>
+  // Drawn by Pocket on top of the phone whenever a text field has focus. Purely visual:
+  // you type with your Mac keyboard, and its keys light up here.
+  const ICON = {
+    globe: '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="9"/><path d="M2 11h18M11 2c3 3 3 15 0 18M11 2c-3 3-3 15 0 18"/></svg>',
+    mic: '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="7.5" y="2" width="7" height="12" rx="3.5"/><path d="M4.5 11a6.5 6.5 0 0 0 13 0M11 17.5V20"/></svg>',
+    shift: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M10 3 3 10.5h4V17h6v-6.5h4z"/></svg>',
+    back: '<svg width="24" height="18" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2h13a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8l-6-7z"/><path d="m11 6 6 6m0-6-6 6"/></svg>',
+    enter: '<svg width="20" height="16" viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v6H4"/><path d="m8 4-4 4 4 4"/></svg>',
+    arrow: '<svg width="20" height="16" viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h13"/><path d="m11 3 5 5-5 5"/></svg>',
+    search: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="5"/><path d="m11.5 11.5 4 4"/></svg>',
+    send: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2 9 16 2l-4 14-3-6z"/></svg>',
+    check: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9.5 4 4 8-9"/></svg>',
+    face: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M6.5 12a4.5 4.5 0 0 0 7 0"/><path d="M7.5 8h0M12.5 8h0" stroke-width="2.2"/></svg>',
+    grid: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5.5" height="5.5" rx="1.5"/><rect x="10.5" y="2" width="5.5" height="5.5" rx="1.5"/><rect x="2" y="10.5" width="5.5" height="5.5" rx="1.5"/><rect x="10.5" y="10.5" width="5.5" height="5.5" rx="1.5"/></svg>',
+    clip: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="3.5" y="3" width="11" height="13" rx="2"/><path d="M6.5 3V2h5v1"/></svg>',
+    gear: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="2.5"/><path d="M9 1.5v2.2M9 14.3v2.2M1.5 9h2.2M14.3 9h2.2M3.7 3.7l1.6 1.6M12.7 12.7l1.6 1.6M3.7 14.3l1.6-1.6M12.7 5.3l1.6-1.6"/></svg>',
+    sticker: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6l-5 5H4a1 1 0 0 1-1-1z"/><path d="M15 10h-4a1 1 0 0 0-1 1v4"/></svg>',
+    dots: '<svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><circle cx="4" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="14" cy="9" r="1.5"/></svg>',
+    hide: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 5 5 5-5"/></svg>',
+  };
+  const NUM_LETTERS = ['', 'ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQRS', 'TUV', 'WXYZ'];
+  const ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+
+  const kbEl = document.getElementById('kb');
+  const h = (cls, html = '') => {
+    const n = document.createElement('div');
+    n.className = cls;
+    n.innerHTML = html;
+    return n;
+  };
+  // key(width, cls, html, data-k)
+  const key = (w, cls, html, k) => {
+    const n = h(`key ${cls}`, html);
+    n.style.width = `${w}px`;
+    if (k !== undefined) n.dataset.k = k;
+    return n;
+  };
+
+  function enterKey(style, enter, w) {
+    if (style === 'apple') {
+      const label = { go: 'go', next: 'next', search: 'search', send: 'send', done: 'done' }[enter] || 'return';
+      return key(w, ['go', 'search', 'send', 'done'].includes(enter) ? 'go' : 'fn', label, 'Enter');
+    }
+    if (style === 'samsung') {
+      const label = { go: 'Go', next: 'Next', search: 'Search', send: 'Send', done: 'Done' }[enter];
+      return key(w, 'go', label || ICON.enter, 'Enter');
+    }
+    const icon = { go: ICON.arrow, next: ICON.arrow, search: ICON.search, send: ICON.send, done: ICON.check }[enter] || ICON.enter;
+    return key(w, 'go', icon, 'Enter');
+  }
+
+  // Four rows of letters filling whatever height is left, like the real thing.
+  function letters(o, area) {
+    const pad = o.style === 'apple' ? 3 : 4;
+    const gapX = o.style === 'apple' ? 6 : 5;
+    const gapY = Math.max(6, Math.round(area * 0.05));
+    const top = o.style === 'apple' ? 8 : 4;
+    const keyH = Math.floor((area - top - gapY * 3 - 4) / 4);
+    const unit = (o.width - pad * 2 - gapX * 9) / 10;
+    const block = h('rows');
+    block.style.cssText = `padding:${top}px ${pad}px 0;display:flex;flex-direction:column;gap:${gapY}px`;
+    const row = () => {
+      const r = h('row');
+      r.style.gap = `${gapX}px`;
+      r.style.height = `${keyH}px`;
+      return r;
+    };
+    // row 1 (number hints on Android)
+    const r1 = row();
+    [...ROWS[0]].forEach((c, i) => {
+      const hint = o.style === 'apple' ? '' : `<small>${(i + 1) % 10}</small>`;
+      r1.append(key(unit, '', hint + c, c));
+    });
+    const r2 = row();
+    [...ROWS[1]].forEach((c) => r2.append(key(unit, '', c, c)));
+    const r3 = row();
+    const side = (o.width - pad * 2 - unit * 7 - gapX * 8) / 2;
+    r3.append(key(side, 'fn', ICON.shift, 'Shift'));
+    [...ROWS[2]].forEach((c) => r3.append(key(unit, '', c, c)));
+    r3.append(key(side, 'fn', ICON.back, 'Backspace'));
+    const r4 = row();
+    const inner = o.width - pad * 2;
+    if (o.style === 'apple') {
+      // Email fields get @ and . beside the space bar, web addresses get / and .com.
+      const extra = o.kind === 'email' ? [['@', unit], ['.', unit]] : o.kind === 'url' ? [['/', unit], ['.com', unit * 1.6]] : [];
+      const fn = Math.round(unit * 2.6);
+      const space = inner - fn * 2 - extra.reduce((s, [, w]) => s + w + gapX, 0) - gapX * 2;
+      r4.append(key(fn, 'fn', '123'), key(space, '', '<span style="font-size:16px">space</span>', ' '));
+      extra.forEach(([c, w]) => r4.append(key(w, '', `<span style="font-size:17px">${c}</span>`, c)));
+      r4.append(enterKey('apple', o.enter, fn));
+    } else {
+      const fn = Math.round(unit * 1.45);
+      const small = unit;
+      const mid = o.kind === 'email' ? '@' : o.kind === 'url' ? '/' : ',';
+      const emoji = o.style === 'gboard' ? [key(small, 'fn', ICON.face)] : [];
+      const used = fn * 2 + small * 2 + emoji.length * small + gapX * (4 + emoji.length);
+      const space = inner - used;
+      const spaceLabel = o.style === 'samsung' ? '<span class="label">English (UK)</span>' : '';
+      r4.append(key(fn, 'fn', o.style === 'samsung' ? '!#1' : '?123'), key(small, '', mid, mid), ...emoji,
+        key(space, '', spaceLabel, ' '), key(small, '', '.', '.'), enterKey(o.style, o.enter, fn));
+    }
+    block.append(r1, r2, r3, r4);
+    return block;
+  }
+
+  // Number and phone pads.
+  function numbers(o, area) {
+    const pad = 6;
+    const gap = o.style === 'apple' ? 7 : 6;
+    const cols = o.style === 'apple' ? 3 : 4;
+    const keyH = Math.floor((area - pad * 2 - gap * 3) / 4);
+    const unit = (o.width - pad * 2 - gap * (cols - 1)) / cols;
+    const block = h('rows numpad');
+    block.style.cssText = `padding:${pad}px;display:flex;flex-direction:column;gap:${gap}px`;
+    const grid = o.style === 'apple'
+      ? [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], [o.kind === 'phone' ? '+*#' : '', '0', 'Backspace']]
+      : [['1', '2', '3', '-'], ['4', '5', '6', ' '], ['7', '8', '9', 'Backspace'], [',', '0', '.', 'Enter']];
+    for (const cells of grid) {
+      const r = h('row');
+      r.style.gap = `${gap}px`;
+      r.style.height = `${keyH}px`;
+      for (const c of cells) {
+        if (c === 'Backspace') r.append(key(unit, o.style === 'apple' ? 'ghost' : 'fn', ICON.back, c));
+        else if (c === 'Enter') r.append(enterKey(o.style, o.enter, unit));
+        else if (c === ' ') r.append(key(unit, 'fn', '␣', ' '));
+        else if (c === '' || c === '+*#') r.append(key(unit, 'ghost', c ? '<span style="font-size:18px">+ * #</span>' : ''));
+        else if (o.style === 'apple' && /\d/.test(c)) r.append(key(unit, '', `${c}<span class="sub">${NUM_LETTERS[+c - 1] || ''}</span>`, c));
+        else r.append(key(unit, /\d/.test(c) ? '' : 'fn', c, c));
+      }
+      block.append(r);
+    }
+    return block;
+  }
+
+  function renderApple(o) {
+    const root = h('apple');
+    root.style.cssText = 'height:100%;display:flex;flex-direction:column';
+    root.append(h('strip accessory', `<span class="chev">${'⌃'}</span><span class="chev">${'⌄'}</span><span class="done" data-act="done">Done</span>`));
+    const board = h('board');
+    const boardH = o.height - 44;
+    const pad = o.kind === 'numeric' || o.kind === 'phone';
+    const predictive = pad || o.landscape ? 0 : 44;
+    const foot = o.homeIndicator ? (pad ? 34 : 78) : 4;
+    if (predictive) board.append(h('predict', '<span>“I”</span><span>The</span><span>I’m</span>'));
+    const area = boardH - predictive - foot;
+    board.append(pad ? numbers(o, area) : letters(o, area));
+    const f = h('strip foot');
+    f.style.height = `${foot}px`;
+    if (foot >= 60) f.innerHTML = `${ICON.globe}${ICON.mic}`;
+    board.append(f);
+    root.append(board);
+    return root;
+  }
+
+  function renderAndroid(o) {
+    const root = h(o.style);
+    root.style.cssText = 'height:100%;display:flex;flex-direction:column';
+    const bar = o.style === 'gboard'
+      ? `${ICON.grid}${ICON.face}<span>GIF</span>${ICON.clip}${ICON.gear}${ICON.mic}`
+      : `${ICON.face}${ICON.sticker}<span>GIF</span>${ICON.mic}${ICON.gear}${ICON.dots}`;
+    const toolbar = h('strip toolbar', bar);
+    root.append(toolbar);
+    const foot = o.style === 'gboard' ? 26 : 6;
+    const area = o.height - (o.style === 'gboard' ? 44 : 42) - foot;
+    root.append(o.kind === 'numeric' || o.kind === 'phone' ? numbers(o, area) : letters(o, area));
+    const f = h('strip foot');
+    f.style.height = `${foot}px`;
+    if (o.style === 'gboard') f.innerHTML = `<span class="hide" data-act="done">${ICON.hide}</span><span class="pill"></span>`;
+    root.append(f);
+    return root;
+  }
+
+  window.kb = {
+    render(o) {
+      kbEl.replaceChildren(o.style === 'apple' ? renderApple(o) : renderAndroid(o));
+    },
+    // A Mac keystroke lights up the matching key for a moment.
+    press(k) {
+      const name = k.length === 1 ? k.toLowerCase() : k;
+      const el = kbEl.querySelector(`[data-k="${CSS.escape(name)}"]`);
+      if (!el) return;
+      el.classList.add('down');
+      setTimeout(() => el.classList.remove('down'), 110);
+    },
+    // Screenshot with the keyboard on: the page, then the keyboard laid over (or under) it,
+    // `outWidth` pixels wide (the page's own resolution when 0).
+    async compose(pageUrl, kbUrl, kbHeightRatio, below, panRatio = 0, outWidth = 0) {
+      const load = (src) => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+      const [page, keys] = await Promise.all([load(pageUrl), load(kbUrl)]);
+      const width = outWidth || page.width;
+      const pageH = Math.round(page.height * (width / page.width));
+      const kbH = Math.round(width * kbHeightRatio);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = below ? pageH + kbH : pageH;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = '#0b0b0c';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(page, 0, -Math.round(width * panRatio), width, pageH); // panned up, as on screen
+      ctx.drawImage(keys, 0, canvas.height - kbH, width, kbH);
+      return canvas.toDataURL('image/png').split(',')[1];
+    },
+  };
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-act="done"]')) console.log('pocket:keyboard-done');
+  });
+</script>
+</body>
+</html>

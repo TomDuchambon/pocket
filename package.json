@@ -1,0 +1,22 @@
+{
+  "name": "pocket",
+  "productName": "Pocket",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Your localhost, pocket-sized.",
+  "main": "main.js",
+  "bin": {
+    "pocket": "bin/pocket.js"
+  },
+  "scripts": {
+    "start": "electron .",
+    "build": "node scripts/build.js",
+    "connect": "node scripts/connect.js",
+    "postinstall": "node -e \"require('electron')\""
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.6.0"
+  },
+  "license": "MIT"
+}

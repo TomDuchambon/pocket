@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Activity</title>
+<style>
+  :root {
+    --bg: #141412;
+    --ink: #e9e6dc;
+    --muted: rgba(233, 230, 220, 0.56);
+    --line: rgba(233, 230, 220, 0.09);
+    --hover: rgba(233, 230, 220, 0.07);
+    --event: #89a4c4;
+    --error: #c4553b;
+    --request: #d2b15c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font: 12px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { display: flex; flex-direction: column; }
+  header { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  h1 { margin: 0; font-size: 13px; font-weight: 600; }
+  button {
+    all: unset; color: var(--muted); font-size: 11px; padding: 2px 7px; border-radius: 6px;
+  }
+  button:hover { color: var(--ink); background: var(--hover); }
+  .status, .counts { margin-top: 4px; color: var(--muted); font-size: 11px; }
+  .counts { font-variant-numeric: tabular-nums; }
+  main { flex: 1; overflow-y: auto; }
+  main::-webkit-scrollbar { width: 0; }
+  .row {
+    display: grid; grid-template-columns: 6px 1fr auto; column-gap: 10px; row-gap: 3px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+  }
+  .led { width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; }
+  .event .led { background: var(--event); }
+  .error .led { background: var(--error); }
+  .request .led { background: var(--request); }
+  .name { font-weight: 600; overflow-wrap: anywhere; }
+  .time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .detail { grid-column: 2 / 4; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+  dl { grid-column: 2 / 4; margin: 2px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-size: 11px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .nav { padding: 12px 16px 4px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+  .empty { padding: 48px 28px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><h1>Activity</h1><button id="clear">Clear</button></div>
+  <div class="status" id="status"></div>
+  <div class="counts" id="counts"></div>
+</header>
+<main id="list"></main>
+<script>
+  // Fed by Pocket's main process. Everything shown is plain text: page messages never become markup.
+  const list = document.getElementById('list');
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+  const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+  function empty() {
+    list.replaceChildren(el('div', 'empty', 'Mixpanel events, page errors and failed requests show up here as they happen.'));
+  }
+
+  function render(row) {
+    if (row.kind === 'nav') return el('div', 'nav', `→ ${row.where}`);
+    const n = el('div', `row ${row.kind}`);
+    n.append(el('div', 'led'), el('div', 'name', row.title), el('div', 'time', clock(row.time)));
+    if (row.detail) n.append(el('div', 'detail', row.detail));
+    if (row.props && row.props.length) {
+      const dl = el('dl');
+      for (const [k, v] of row.props) dl.append(el('dt', '', k), el('dd', '', v));
+      n.append(dl);
+    }
+    return n;
+  }
+
+  window.pocket = {
+    reset({ rows, status, counts }) {
+      if (!rows.length) empty();
+      else list.replaceChildren(...rows.map(render));
+      this.status(status);
+      this.counts(counts);
+    },
+    add(row) {
+      if (list.querySelector('.empty')) list.replaceChildren();
+      list.prepend(render(row));
+      while (list.childElementCount > 400) list.lastElementChild.remove();
+    },
+    status(text) { document.getElementById('status').textContent = text; },
+    counts({ events, errors }) {
+      document.getElementById('counts').textContent =
+        `${plural(events, 'event')} · ${plural(errors, 'error')} since this page loaded`;
+    },
+  };
+  document.getElementById('clear').addEventListener('click', () => console.log('pocket:clear'));
+  empty();
+</script>
+</body>
+</html>
